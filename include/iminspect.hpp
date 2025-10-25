@@ -16,6 +16,9 @@
 #include <variant>
 
 namespace ImInspect {
+std::string normalize_type_name(std::string_view type_name);
+void        colored_pretty_typename(const std::string& pretty, float indent);
+std::string pretty_typename(const std::string_view type_name);
 
 template<typename T>
 inline constexpr bool is_opaque_enum = false;
@@ -57,12 +60,7 @@ constexpr auto type_name<volatile T> = type_name<T>;
 template<typename T>
 constexpr auto type_name<const volatile T> = type_name<T>;
 
-template<>
-constexpr auto type_name<std::string> = std::string_view("std::string");
-
-template<>
-constexpr auto type_name<std::string_view> = std::string_view("std::string_view");
-
+void add_regex_alias(std::string_view regex, std::string_view replacement);
 // Forward declared so they can select the correct overload.
 // sigh this took me a while to understand this is required.
 template<typename T>
@@ -238,13 +236,26 @@ namespace details {
     }
   }
 
+
+  inline auto as_void(void* p) { return p; }
+  inline auto as_void(const void* p) { return p; }
+  inline auto as_void(volatile void* p) { return p; }
+  inline auto as_void(const volatile void* p) { return p; }
+
   template<typename P>
   void inspect_pointer(P& p, const std::string& name)
   {
-    if (p)
-      ImInspect::do_inspection(*p, name);
-    else
+    if (p) {
+      const auto tree = ImSweet::TreeNode(name.c_str());
+      if (ImGui::IsItemHovered())
+        details::type_tooltip(type_name<decltype(p)>);
+      if (tree) {
+        ImInspect::do_inspection(*p, name);
+      }
+    }
+    else {
       details::display_readonly_data(std::string_view("nullptr"), name, type_name<decltype(p)>);
+    }
   }
 
   template<typename T, std::size_t... Is>
@@ -261,6 +272,9 @@ namespace details {
       (void)c;
     }
   }
+
+
+  void display_function_pointer(void (*f)(), const std::string& name, std::string_view type_name);
 
   template<std::size_t I, typename V>
   void default_construct_alternative(void* v)
@@ -291,46 +305,61 @@ namespace details {
         if (const auto popup = ImSweet::Popup("Alternatives")) {
 
           for (std::size_t i = 0; i < sizeof...(Is); ++i) {
-            bool is_selected = n == type_names[i];
+            bool              is_selected = n == type_names[i];
+            const ImSweet::ID id(static_cast<int>(i));
+            const auto        s = ImInspect::normalize_type_name(type_names[i]);
+
             if (default_constructible[i]) {
-              if (ImGui::Selectable(type_names[i].data(), is_selected))
+              const bool clicked = ImGui::Selectable("", is_selected);
+              ImInspect::colored_pretty_typename(s, 0.0f);
+              if (clicked)
                 constructors[i](static_cast<void*>(&v));
-              if (is_selected)
-                ImGui::SetItemDefaultFocus();
             }
             else {
-              const ImSweet::ID id(static_cast<int>(i));
-              ImGui::TextDisabled("%s", type_names[i].data()); 
+              ImGui::TextDisabled("%s", s.data());
               if (ImGui::IsItemHovered()) {
                 details::red_tooltip("This alternative is not default-constructible!");
               }
             }
+            if (is_selected)
+              ImGui::SetItemDefaultFocus();
           }
         }
-
-        ImGui::SameLine();
-        details::Text("Current Type: ");
-        ImGui::SameLine();
-        details::Text(n);
       };
 
       visit([&non_templated](auto& e) { non_templated(type_name<std::remove_cvref_t<decltype(e)>>); }, v);
     }
     else {
       const auto non_templated = [&](const std::string_view n) {
-        details::grey_button("+", R"(
-Cannot change alternative for const variants.
-)");
-        ImGui::SameLine();
-        details::Text("Current Type: ");
-        ImGui::SameLine();
-        details::Text(n);
+        using F = void(void*);
+        if (ImGui::Button("+")) {
+          ImGui::OpenPopup("Alternatives");
+        }
+
+        if (const auto popup = ImSweet::Popup("Alternatives")) {
+
+          for (std::size_t i = 0; i < sizeof...(Is); ++i) {
+            bool              is_selected = n == type_names[i];
+            const ImSweet::ID id(static_cast<int>(i));
+            const auto        s = ImInspect::normalize_type_name(type_names[i]);
+
+            ImGui::TextDisabled("%s", s.data());
+            if (ImGui::IsItemHovered()) {
+              details::red_tooltip("This alternative is not default-constructible!");
+            }
+          }
+        }
       };
 
       visit([&non_templated](auto& e) { non_templated(type_name<decltype(e)>); }, v);
     }
 
-    visit([&name](auto& e) { ImInspect::do_inspection(e, name); }, v);
+    visit(
+      [&name](auto& e) {
+        ImGui::SameLine();
+        ImInspect::do_inspection(e, name);
+      },
+      v);
   }
 
   template<typename Iter, typename Sen, std::size_t... Is>
@@ -414,8 +443,8 @@ Cannot change alternative for const variants.
   {
     auto f = [](auto& e, const std::size_t i) {
       ImSweet::ID id(i);
-      const auto      n = lahzam::member_names<T>[i];
-      using E           = std::remove_cvref_t<decltype(e)>;
+      const auto  n = lahzam::member_names<T>[i];
+      using E       = std::remove_cvref_t<decltype(e)>;
       if constexpr (lahzam::reflectable<E>) {
         if constexpr (lahzam::member_count<E> > 1) {
           const auto tree = ImSweet::TreeNode(n.data());
@@ -491,7 +520,12 @@ void do_inspection(const T& t, const std::string& name)
     details::inspect_optional(t, name);
   }
   else if constexpr (details::PointerLike<T>) {
-    details::inspect_pointer(t, name);
+    if constexpr (std::is_function_v<std::remove_pointer_t<T>>) {
+      details::display_function_pointer(reinterpret_cast<void (*)()>(t), name, type_name<T>);
+    }
+    else {
+      details::inspect_pointer(t, name);
+    }
   }
   else if constexpr (std::is_empty_v<T>) {
     ImGui::Text("{ this is an empty type }");
@@ -572,7 +606,12 @@ void do_inspection(T& t, const std::string& name)
     details::inspect_optional(t, name);
   }
   else if constexpr (details::PointerLike<T>) {
-    details::inspect_pointer(t, name);
+    if constexpr (std::is_function_v<std::remove_pointer_t<T>>) {
+      details::display_function_pointer(reinterpret_cast<void (*)()>(t), name, type_name<T>);
+    }
+    else {
+      details::inspect_pointer(t, name);
+    }
   }
   else if constexpr (std::is_empty_v<T>) {
     ImGui::Text("{ this is an empty type }");

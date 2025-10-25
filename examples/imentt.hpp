@@ -18,6 +18,7 @@ inline constexpr bool is_opaque_enum<entt::entity> = true;
 } // namespace ImInspect
 
 namespace ImEnTT {
+
 namespace details {
 
   template<typename Entity, typename Alloc>
@@ -72,7 +73,10 @@ struct ComponentMeta : BasicComponentMeta<Registry> {
   bool add_component_menu(Registry& registry, entity_type entity) const override
   {
     if (!registry.template all_of<Component>(entity)) {
-      if (ImGui::Selectable(name.c_str())) {
+      ImSweet::ID id(name);
+      const bool  clicked = ImGui::Selectable(" ");
+      ImInspect::colored_pretty_typename(ImInspect::normalize_type_name(name), 0.0f);
+      if (clicked) {
         registry.template emplace<Component>(entity, ImInspect::default_value<Component>{}());
         ImGui::CloseCurrentPopup();
       }
@@ -85,7 +89,7 @@ struct ComponentMeta : BasicComponentMeta<Registry> {
   {
     if (auto* comp = registry.template try_get<Component>(entity)) {
       // square size matching the header height
-      const float size = ImGui::GetFrameHeight(); 
+      const float size = ImGui::GetFrameHeight();
 
       if (ImGui::Button("-", ImVec2(size, size))) {
         remove_component(registry, entity);
@@ -95,9 +99,15 @@ struct ComponentMeta : BasicComponentMeta<Registry> {
       ImGui::SameLine();
 
       ImGui::BeginGroup();
-      if (ImGui::CollapsingHeader(name.c_str())) {
+      ImSweet::ID id(name);
+
+      const auto clicked = ImGui::CollapsingHeader("");
+      ImGui::SameLine();
+      const auto normalized = ImInspect::normalize_type_name(name);
+      ImInspect::colored_pretty_typename(normalized, 0.0f);
+      if (clicked) {
         //ImGui::Indent(size + ImGui::GetStyle().ItemSpacing.x);
-        ImInspect::do_inspection(*comp, name);
+        ImInspect::do_inspection(*comp, normalized);
         //ImGui::Unindent(size + ImGui::GetStyle().ItemSpacing.x);
       }
       ImGui::EndGroup();
@@ -119,7 +129,7 @@ public:
   void register_component(const std::string& name = std::string(ImInspect::type_name<Component>))
   {
     for (const auto& comp : mComponents) {
-      assert(comp->name() != name && "name already registered");
+      assert(comp->name != name && "name already registered");
       (void)comp;
     }
     mComponents.emplace_back(new ComponentMeta<Registry, Component>(name));
@@ -143,9 +153,10 @@ public:
       for (std::size_t i = 0; i < mComponents.size(); ++i) {
         auto& comp = *mComponents[i];
 
-        bool enabled = std::ranges::find(mEnabledComponents, i) != mEnabledComponents.end();
-
-        const auto clicked = ImGui::Checkbox(comp.name.c_str(), &enabled);
+        bool              enabled = std::ranges::find(mEnabledComponents, i) != mEnabledComponents.end();
+        const ImSweet::ID id(comp.name);
+        const auto        clicked = ImGui::Checkbox(" ", &enabled);
+        ImInspect::colored_pretty_typename(ImInspect::normalize_type_name(comp.name), 0.0f);
         if (ImGui::IsItemHovered()) {
           std::size_t matchingEntities = 0;
           for (const auto e : registry.view<entity_type>())
@@ -223,7 +234,7 @@ public:
         }
 
         for (const auto& meta : mComponents) {
-          ImSweet::ID id(meta->name().c_str());
+          ImSweet::ID id(meta->name);
           meta->draw(registry, entity);
         }
       }
@@ -234,9 +245,9 @@ public:
   }
 
 private:
-  std::string                                            mName;
-  std::vector<std::unique_ptr<IComponentMeta<registry>>> mComponents;
-  std::vector<std::size_t>                               mEnabledComponents;
+  std::string                                                mName;
+  std::vector<std::unique_ptr<BasicComponentMeta<registry>>> mComponents;
+  std::vector<std::size_t>                                   mEnabledComponents;
 };
 
 } // namespace ImEnTT

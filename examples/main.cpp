@@ -1,10 +1,10 @@
+#include "imentt.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
 #include <enchantum/bitwise_operators.hpp>
 #include <filesystem>
-#include "imentt.hpp"
 #include <map>
 #include <optional>
 #include <stdio.h>
@@ -12,11 +12,15 @@
 #include <variant>
 #include <vector>
 
+void func() {}
+
 struct VoidPtr {
   void*                a{};
   const void*          b{&a};
   volatile void*       c{&a};
   const volatile void* d{&c};
+  std::vector<std::string> (*funcptr1)(std::string) = nullptr;
+  void (*funcptr2)() = &func;
 };
 
 struct NoDefConstructor {
@@ -87,7 +91,7 @@ struct Attributes {
 };
 
 struct State {
-  std::variant<std::monostate, int, std::string, NoDefConstructor> value;
+  std::variant<std::monostate, int, std::string, NoDefConstructor,long> value;
 };
 
 struct Character {
