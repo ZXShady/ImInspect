@@ -1,4 +1,4 @@
-#include "imentt.hpp"
+#include "imentt/imentt.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -14,13 +14,17 @@
 
 void func() {}
 
+template<auto Lambda = []() { auto x = 0; }>
+struct LamdbaInName {
+  int              x{};
+};
 struct VoidPtr {
   void*                a{};
   const void*          b{&a};
   volatile void*       c{&a};
   const volatile void* d{&c};
   std::vector<std::string> (*funcptr1)(std::string) = nullptr;
-  void (*funcptr2)() = &func;
+  void (*funcptr2)()                                = &func;
 };
 
 struct NoDefConstructor {
@@ -91,7 +95,7 @@ struct Attributes {
 };
 
 struct State {
-  std::variant<std::monostate, int, std::string, NoDefConstructor,long> value;
+  std::variant<std::monostate, int, std::string, NoDefConstructor, long> value;
 };
 
 struct Character {
@@ -309,6 +313,7 @@ int main()
   editor.register_component<A>();
   editor.register_component<B>();
   editor.register_component<VoidPtr>();
+  editor.register_component<LamdbaInName<>>();
 
 
   // Main loop
@@ -329,6 +334,7 @@ int main()
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
+    ImInspect::do_inspection(ImInspect::GetStyle(), "ImInspect Style");
 
     editor.render(registry);
     //editor.draw(registry);

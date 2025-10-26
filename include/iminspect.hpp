@@ -12,10 +12,25 @@
 #include <ranges>
 #include <typeindex>
 #include <unordered_map>
-#include <unordered_set>
 #include <variant>
 
 namespace ImInspect {
+
+struct Style {
+  struct TypeHighlighter {
+    ImColor Text;
+    ImColor Bracket;
+    ImColor Symbol;
+    ImColor Operator;
+    ImColor Keyword;
+    ImColor Namespace;
+    ImColor Name;
+  };
+  TypeHighlighter TypeHighlighter;
+};
+
+Style& GetStyle();
+
 std::string normalize_type_name(std::string_view type_name);
 void        colored_pretty_typename(const std::string& pretty, float indent);
 std::string pretty_typename(const std::string_view type_name);
@@ -73,6 +88,13 @@ void do_inspection(void* p, const std::string& name);
 void do_inspection(const void* p, const std::string& name);
 void do_inspection(volatile void* p, const std::string& name);
 void do_inspection(const volatile void* p, const std::string& name);
+
+void do_inspection(ImVec2& v, const std::string& name);
+void do_inspection(const ImVec2& v, const std::string& name);
+void do_inspection(ImVec4& v, const std::string& name);
+void do_inspection(const ImVec4& v, const std::string& name);
+void do_inspection(ImColor& c, const std::string& name);
+void do_inspection(const ImColor& c, const std::string& name);
 
 void do_inspection(const bool& b, const std::string& name);
 void do_inspection(const char& c, const std::string& name);

@@ -11,7 +11,21 @@
 #include <unordered_set>
 
 namespace ImInspect {
-
+Style& GetStyle()
+{
+  static auto style = []() {
+    Style s{};
+    s.TypeHighlighter.Text      = {0.9f, 0.9f, 0.9f, 1.0f};
+    s.TypeHighlighter.Bracket   = {0.4f, 0.7f, 1.0f, 1.0f};
+    s.TypeHighlighter.Symbol    = {0.7f, 0.7f, 0.7f, 1.0f};
+    s.TypeHighlighter.Operator  = {1.0f, 0.6f, 0.3f, 1.0f};
+    s.TypeHighlighter.Keyword   = {1.0f, 0.3f, 0.3f, 1.0f};
+    s.TypeHighlighter.Namespace = {0.76f, 0.38f, 0.59f, 1.0f};
+    s.TypeHighlighter.Name      = {0.4f, 0.7f, 1.0f, 1.0f};
+    return s;
+  }();
+  return style;
+}
 
 namespace {
   struct RegexAlias {
@@ -172,13 +186,15 @@ void colored_pretty_typename(const std::string& pretty, float indent)
 
   std::vector<std::pair<std::string_view, ImVec4>> colors;
 
-  static constexpr ImVec4 color_text      = {0.9f, 0.9f, 0.9f, 1.0f};
-  static constexpr ImVec4 color_bracket   = {0.4f, 0.7f, 1.0f, 1.0f};
-  static constexpr ImVec4 color_symbol    = {0.7f, 0.7f, 0.7f, 1.0f};
-  static constexpr ImVec4 color_operator  = {1.0f, 0.6f, 0.3f, 1.0f};
-  static constexpr ImVec4 color_keyword   = {1.0f, 0.3f, 0.3f, 1.0f};
-  static constexpr ImVec4 color_namespace = {0.76f, 0.38f, 0.59f, 1.0f};
-  static constexpr ImVec4 color_name      = {0.4f, 0.7f, 1.0f, 1.0f};
+  const auto& style = ImInspect::GetStyle();
+
+  const auto color_text      = style.TypeHighlighter.Text;
+  const auto color_bracket   = style.TypeHighlighter.Bracket;
+  const auto color_symbol    = style.TypeHighlighter.Symbol;
+  const auto color_operator  = style.TypeHighlighter.Operator;
+  const auto color_keyword   = style.TypeHighlighter.Keyword;
+  const auto color_namespace = style.TypeHighlighter.Namespace;
+  const auto color_name      = style.TypeHighlighter.Name;
 
   // clang-format off
 static constexpr std::string_view cpp_keywords[] = {
@@ -237,9 +253,9 @@ static constexpr std::string_view cpp_keywords[] = {
 };
   // clang-format on
 
-  static constexpr char brackets[] = {'<', '>', '{', '}', '(', ')', '[', ']'};
+  static constexpr char brackets[]  = {'<', '>', '{', '}', '(', ')', '[', ']'};
   static constexpr char operators[] = {',', '*', '&', '+', '-', '/', '%', '=', '!', '~', '^', '|', '?', '.'};
-  auto           is_keyword  = [&](std::string_view token) {
+  auto                  is_keyword  = [&](std::string_view token) {
     for (auto kw : cpp_keywords)
       if (kw == token)
         return true;
@@ -354,7 +370,8 @@ std::string pretty_typename(const std::string_view type_name)
 
 std::string_view to_string(const char* s) { return s; }
 
-void do_inspection(bool& b, const std::string& name) { ImGui::Checkbox(name.c_str(), &b); }
+void do_inspection(bool& b, const std::string& name) { 
+    ImGui::Checkbox(name.c_str(), &b); }
 void do_inspection(char& c, const std::string& name)
 {
   const ImSweet::ID id(name);
@@ -393,13 +410,65 @@ void do_inspection(const std::string& s, const std::string& name)
   details::display_readonly_data(s, name, type_name<decltype(s)>);
 }
 
-
 void do_inspection(std::string& s, const std::string& name)
 {
   const ImSweet::ID id(name);
   ImGui::InputText("", &s);
   ImGui::SameLine();
   ImInspect::display_label_with_type_tooltip(name, type_name<decltype(s)>);
+}
+
+
+void do_inspection(ImVec4& v, const std::string& name)
+{
+  const ImSweet::ID id(name);
+  ImGui::InputFloat4("", &v.x);
+  ImGui::SameLine();
+  ImInspect::display_label_with_type_tooltip(name, type_name<decltype(v)>);
+}
+void do_inspection(const ImVec4& v, const std::string& name)
+{
+  const ImSweet::ID id(name);
+  auto              c = v;
+  ImGui::InputFloat4("", &c.x, "%.3f", ImGuiInputTextFlags_::ImGuiInputTextFlags_ReadOnly);
+  if (ImGui::IsItemHovered())
+    details::red_tooltip("Cannot edit this field it is not writable.");
+  ImGui::SameLine();
+  ImInspect::display_label_with_type_tooltip(name, type_name<decltype(v)>);
+}
+void do_inspection(ImVec2& v, const std::string& name)
+{
+  const ImSweet::ID id(name);
+  ImGui::InputFloat2("", &v.x);
+  ImGui::SameLine();
+  ImInspect::display_label_with_type_tooltip(name, type_name<decltype(v)>);
+}
+void do_inspection(const ImVec2& v, const std::string& name)
+{
+  const ImSweet::ID id(name);
+  auto              c = v;
+  ImGui::InputFloat2("", &c.x, "%.3f", ImGuiInputTextFlags_::ImGuiInputTextFlags_ReadOnly);
+  if (ImGui::IsItemHovered())
+    details::red_tooltip("Cannot edit this field it is not writable.");
+  ImGui::SameLine();
+  ImInspect::display_label_with_type_tooltip(name, type_name<decltype(v)>);
+}
+void do_inspection(ImColor& c, const std::string& name)
+{
+  const ImSweet::ID id(name);
+  ImGui::ColorEdit4("", &c.Value.x);
+  ImGui::SameLine();
+  ImInspect::display_label_with_type_tooltip(name, type_name<decltype(c)>);
+}
+void do_inspection(const ImColor& c, const std::string& name)
+{
+  const ImSweet::ID id(name);
+  auto              copy = c;
+  ImGui::ColorEdit4("", &copy.Value.x, ImGuiInputTextFlags_::ImGuiInputTextFlags_ReadOnly);
+  if (ImGui::IsItemHovered())
+    details::red_tooltip("Cannot edit this field it is not writable.");
+  ImGui::SameLine();
+  ImInspect::display_label_with_type_tooltip(name, type_name<decltype(c)>);
 }
 
 namespace details {
@@ -451,7 +520,7 @@ namespace details {
   }
 
 
-  void inspect_filesystem_path(void* fs, const std::string& name)
+  void inspect_filesystem_path(void* const fs, const std::string& name)
   {
     assert(fs != nullptr);
     auto&       path = *static_cast<std::filesystem::path*>(fs);
@@ -489,7 +558,6 @@ namespace details {
     }
   }
 
-
   void type_tooltip(const std::string_view name, const volatile void*)
   {
     const auto tooltip = ImSweet::Tooltip();
@@ -503,7 +571,6 @@ namespace details {
     auto pretty = ImInspect::pretty_typename(ImInspect::normalize_type_name(name));
     ImInspect::colored_pretty_typename(pretty, label_width);
   }
-
 
   void display_readonly_data(const std::string_view s, const std::string& name, const std::string_view type_name)
   {
